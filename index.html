@@ -97,6 +97,7 @@
                         <div class="flex-grow border-t"></div><span class="mx-4 text-xs text-gray-400">または</span>
                         <div class="flex-grow border-t"></div>
                     </div>
+
                     <input type="email" id="login-email" required placeholder="メールアドレス"
                         class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
                     <input type="password" id="login-password" required placeholder="パスワード"
@@ -116,6 +117,7 @@
                         <div class="flex-grow border-t"></div><span class="mx-4 text-xs text-gray-400">または</span>
                         <div class="flex-grow border-t"></div>
                     </div>
+
                     <input type="email" id="reg-email" required placeholder="メールアドレス"
                         class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
                     <input type="password" id="reg-password" required placeholder="パスワード"
@@ -166,11 +168,9 @@
                         class="admin-nav-item active w-full text-left px-6 py-4 hover:bg-white/10 transition">📊
                         ダッシュボード</button>
                     <button onclick="switchAdminTab('categories')" id="nav-categories"
-                        class="admin-nav-item w-full text-left px-6 py-4 hover:bg-white/10 transition">📂
-                        カテゴリ管理</button>
+                        class="admin-nav-item w-full text-left px-6 py-4 hover:bg-white/10 transition">🎓 講座管理</button>
                     <button onclick="switchAdminTab('lessons')" id="nav-lessons"
-                        class="admin-nav-item w-full text-left px-6 py-4 hover:bg-white/10 transition">🎥
-                        レッスン管理</button>
+                        class="admin-nav-item w-full text-left px-6 py-4 hover:bg-white/10 transition">� 動画管理</button>
                     <button onclick="switchAdminTab('users')" id="nav-users"
                         class="admin-nav-item w-full text-left px-6 py-4 hover:bg-white/10 transition">👥
                         ユーザー・進捗</button>
@@ -197,32 +197,32 @@
                             <div id="stat-reports" class="text-3xl font-bold text-purple-600">-</div>
                         </div>
                         <div class="bg-white p-6 rounded-lg shadow-sm">
-                            <div class="text-sm text-gray-500 mb-1">レッスン数</div>
+                            <div class="text-sm text-gray-500 mb-1">登録動画数</div>
                             <div id="stat-lessons" class="text-3xl font-bold text-green-600">-</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Categories -->
+                <!-- Course (Category) Management -->
                 <div id="admin-categories" class="hidden space-y-6">
                     <div class="flex justify-between items-center border-b pb-2">
-                        <h3 class="text-xl font-bold text-gray-800">カテゴリ管理</h3>
-                        <button onclick="openModal('category-modal')"
+                        <h3 class="text-xl font-bold text-gray-800">講座管理</h3>
+                        <button onclick="openCategoryModal()"
                             class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">+
-                            新規作成</button>
+                            新規講座作成</button>
                     </div>
-                    <div id="admin-cat-list" class="bg-white rounded-lg shadow-sm"></div>
+                    <div id="admin-cat-list" class="bg-white rounded-lg shadow-sm divide-y divide-gray-100"></div>
                 </div>
 
-                <!-- Lessons -->
+                <!-- Video (Lesson) Management -->
                 <div id="admin-lessons" class="hidden space-y-6">
                     <div class="flex justify-between items-center border-b pb-2">
-                        <h3 class="text-xl font-bold text-gray-800">レッスン管理</h3>
+                        <h3 class="text-xl font-bold text-gray-800">動画管理</h3>
                         <button onclick="openLessonModal()"
                             class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">+
-                            レッスン追加</button>
+                            動画追加</button>
                     </div>
-                    <div id="admin-les-list" class="bg-white rounded-lg shadow-sm"></div>
+                    <div id="admin-les-list" class="bg-white rounded-lg shadow-sm divide-y divide-gray-100"></div>
                 </div>
 
                 <!-- Users & Progress -->
@@ -295,13 +295,18 @@
         </div>
     </div>
 
-    <!-- Admin: Category Modal -->
+    <!-- Admin: Course Modal (Create/Edit) -->
     <div id="category-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
-        <form onsubmit="saveCategory(event)" class="bg-white p-8 rounded-xl max-w-sm w-full shadow-lg">
-            <h3 class="font-bold text-lg mb-4">新規カテゴリ</h3>
-            <input name="title" required placeholder="タイトル" class="w-full p-2 border rounded mb-3">
-            <input name="desc" placeholder="説明" class="w-full p-2 border rounded mb-3">
-            <input name="order" type="number" value="1" placeholder="順序" class="w-full p-2 border rounded mb-4">
+        <form onsubmit="saveCategory(event)" class="bg-white p-8 rounded-xl max-w-sm w-full shadow-lg relative">
+            <h3 class="font-bold text-lg mb-4" id="cat-modal-title">講座編集</h3>
+            <input type="hidden" name="id" id="cat-id">
+            <label class="text-xs text-gray-500 block mb-1">講座タイトル</label>
+            <input name="title" id="cat-title" required placeholder="タイトル" class="w-full p-2 border rounded mb-3">
+            <label class="text-xs text-gray-500 block mb-1">説明文</label>
+            <input name="desc" id="cat-desc" placeholder="説明" class="w-full p-2 border rounded mb-3">
+            <label class="text-xs text-gray-500 block mb-1">表示順</label>
+            <input name="order" id="cat-order" type="number" value="1" placeholder="順序"
+                class="w-full p-2 border rounded mb-4">
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeModal('category-modal')"
                     class="px-4 py-2 text-gray-500">キャンセル</button>
@@ -310,20 +315,38 @@
         </form>
     </div>
 
-    <!-- Admin: Lesson Modal -->
+    <!-- Admin: Video Modal (Create/Edit) -->
     <div id="lesson-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
         <form onsubmit="saveLesson(event)"
             class="bg-white p-8 rounded-xl max-w-md w-full shadow-lg max-h-[90vh] overflow-y-auto">
-            <h3 class="font-bold text-lg mb-4">レッスン追加</h3>
+            <h3 class="font-bold text-lg mb-4" id="les-modal-title">動画編集</h3>
+            <input type="hidden" name="id" id="les-id">
+
+            <label class="text-xs text-gray-500 block mb-1">所属講座</label>
             <select name="cat_id" id="modal-cat-select" class="w-full p-2 border rounded mb-3"></select>
-            <input name="title" required placeholder="タイトル" class="w-full p-2 border rounded mb-3">
-            <input name="url" required placeholder="YouTube URL"
+
+            <label class="text-xs text-gray-500 block mb-1">動画タイトル</label>
+            <input name="title" id="les-title" required placeholder="タイトル" class="w-full p-2 border rounded mb-3">
+
+            <label class="text-xs text-gray-500 block mb-1">YouTube URL</label>
+            <input name="url" id="les-url" required placeholder="https://youtu.be/..."
                 class="w-full p-2 border rounded mb-3 font-mono text-sm">
-            <input name="thumb" placeholder="サムネイルURL (任意)" class="w-full p-2 border rounded mb-3 font-mono text-sm">
+
+            <label class="text-xs text-gray-500 block mb-1">サムネイルURL (任意)</label>
+            <input name="thumb" id="les-thumb" placeholder="https://..."
+                class="w-full p-2 border rounded mb-3 font-mono text-sm">
+
             <div class="grid grid-cols-2 gap-2 mb-4">
-                <input name="order" type="number" value="1" placeholder="順序" class="w-full p-2 border rounded">
-                <input name="min" type="number" value="20" placeholder="必須文字数" class="w-full p-2 border rounded">
+                <div>
+                    <label class="text-xs text-gray-500 block mb-1">表示順</label>
+                    <input name="order" id="les-order" type="number" value="1" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 block mb-1">必須文字数</label>
+                    <input name="min" id="les-min" type="number" value="20" class="w-full p-2 border rounded">
+                </div>
             </div>
+
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeModal('lesson-modal')"
                     class="px-4 py-2 text-gray-500">キャンセル</button>
@@ -592,6 +615,7 @@
             document.getElementById('stat-lessons').textContent = l.count || 0;
         }
 
+        // --- Admin: Categories (Courses) ---
         async function refreshAdminCategories() {
             const { data } = await supabase.from('categories').select('*').order('display_order');
             document.getElementById('admin-cat-list').innerHTML = data.map(c => `
@@ -600,14 +624,18 @@
                         <span class="text-sm text-gray-400 mr-2">#${c.display_order}</span>
                         <span class="font-bold text-gray-800">${c.title}</span>
                     </div>
-                    <button onclick="deleteItem('categories', ${c.id}, refreshAdminCategories)" class="text-red-500 text-xs hover:underline">削除</button>
+                    <div class="flex gap-2">
+                         <button onclick="openCategoryModal(${c.id})" class="text-blue-500 text-xs hover:underline bg-blue-50 px-2 py-1 rounded">編集</button>
+                        <button onclick="deleteItem('categories', ${c.id}, refreshAdminCategories)" class="text-red-500 text-xs hover:underline bg-red-50 px-2 py-1 rounded">削除</button>
+                    </div>
                 </div>
             `).join('');
         }
 
+        // --- Admin: Lessons (Videos) ---
         async function refreshAdminLessons() {
             const [l, c] = await Promise.all([
-                supabase.from('lessons').select('*').order('category_id'),
+                supabase.from('lessons').select('*').order('category_id').order('lesson_order'),
                 supabase.from('categories').select('id, title')
             ]);
             document.getElementById('admin-les-list').innerHTML = l.data.map(les => {
@@ -618,18 +646,17 @@
                         <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 mr-2">${catName}</span>
                         <span class="font-bold text-gray-800">${les.title}</span>
                     </div>
-                    <button onclick="deleteItem('lessons', ${les.id}, refreshAdminLessons)" class="text-red-500 text-xs hover:underline">削除</button>
+                    <div class="flex gap-2">
+                        <button onclick="openLessonModal(${les.id})" class="text-blue-500 text-xs hover:underline bg-blue-50 px-2 py-1 rounded">編集</button>
+                        <button onclick="deleteItem('lessons', ${les.id}, refreshAdminLessons)" class="text-red-500 text-xs hover:underline bg-red-50 px-2 py-1 rounded">削除</button>
+                    </div>
                 </div>`;
             }).join('');
         }
 
         async function refreshAdminUsers() {
-            // Fetch progress and profiles (note: simple join not always easy with RLS, so separate queries for safety)
             const { data: progs } = await supabase.from('progress').select('user_id');
-            // Mock aggregation since we can't easily select users without admin API
-            // Note: Users table is restricted, so we use profiles table
             const { data: users } = await supabase.from('profiles').select('*');
-
             const stats = {};
             progs.forEach(p => { stats[p.user_id] = (stats[p.user_id] || 0) + 1; });
 
@@ -648,27 +675,74 @@
         // Admin Actions
         function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-        async function openLessonModal() {
-            const { data } = await supabase.from('categories').select('*');
-            document.getElementById('modal-cat-select').innerHTML = data.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+
+        async function openCategoryModal(id = null) {
+            document.getElementById('cat-modal-title').textContent = id ? '講座編集' : '新規講座作成';
+            document.getElementById('cat-id').value = id || '';
+
+            if (id) {
+                const { data } = await supabase.from('categories').select('*').eq('id', id).single();
+                document.getElementById('cat-title').value = data.title;
+                document.getElementById('cat-desc').value = data.description;
+                document.getElementById('cat-order').value = data.display_order;
+            } else {
+                document.getElementById('cat-title').value = '';
+                document.getElementById('cat-desc').value = '';
+                document.getElementById('cat-order').value = 1;
+            }
+            openModal('category-modal');
+        }
+
+        async function openLessonModal(id = null) {
+            const { data: cats } = await supabase.from('categories').select('*');
+            document.getElementById('modal-cat-select').innerHTML = cats.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+
+            document.getElementById('les-modal-title').textContent = id ? '動画編集' : '動画追加';
+            document.getElementById('les-id').value = id || '';
+
+            if (id) {
+                const { data } = await supabase.from('lessons').select('*').eq('id', id).single();
+                document.getElementById('modal-cat-select').value = data.category_id;
+                document.getElementById('les-title').value = data.title;
+                document.getElementById('les-url').value = data.video_url;
+                document.getElementById('les-thumb').value = data.thumbnail_url || '';
+                document.getElementById('les-order').value = data.lesson_order;
+                document.getElementById('les-min').value = data.min_feedback_length;
+            } else {
+                document.getElementById('les-title').value = '';
+                document.getElementById('les-url').value = '';
+                document.getElementById('les-thumb').value = '';
+                document.getElementById('les-order').value = 1;
+                document.getElementById('les-min').value = 20;
+            }
             openModal('lesson-modal');
         }
 
         async function saveCategory(e) {
             e.preventDefault();
             const f = e.target;
-            await supabase.from('categories').insert({ title: f.title.value, description: f.desc.value, display_order: f.order.value });
-            closeModal('category-modal'); refreshAdminCategories(); f.reset();
+            const id = f.id.value;
+            const payload = { title: f.title.value, description: f.desc.value, display_order: f.order.value };
+
+            if (id) await supabase.from('categories').update(payload).eq('id', id);
+            else await supabase.from('categories').insert(payload);
+
+            closeModal('category-modal'); refreshAdminCategories();
         }
 
         async function saveLesson(e) {
             e.preventDefault();
             const f = e.target;
-            await supabase.from('lessons').insert({
+            const id = f.id.value;
+            const payload = {
                 category_id: f.cat_id.value, title: f.title.value, video_url: f.url.value,
                 thumbnail_url: f.thumb.value || null, lesson_order: f.order.value, min_feedback_length: f.min.value
-            });
-            closeModal('lesson-modal'); refreshAdminLessons(); f.reset();
+            };
+
+            if (id) await supabase.from('lessons').update(payload).eq('id', id);
+            else await supabase.from('lessons').insert(payload);
+
+            closeModal('lesson-modal'); refreshAdminLessons();
         }
 
         async function deleteItem(table, id, callback) {
