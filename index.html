@@ -3,290 +3,701 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pharmacist Community</title>
+    <title>PharmaCampus - 薬剤師向け動画学習サイト</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+        .locked-overlay {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+        .requirement-met {
+            color: #10b981;
+        }
+        .requirement-unmet {
+            color: #ef4444;
+        }
+        .video-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        .video-card {
+            transition: all 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
 </head>
-<body class="bg-slate-50 text-gray-800 font-sans min-h-screen">
+<body class="bg-gray-50 min-h-screen">
+    <!-- ========================================
+         Supabase 初期化
+    ======================================== -->
+    <script>
+        // Supabase設定（ご自身のキーに置き換えてください）
+        const SUPABASE_URL = '【あなたのSupabase URL】';
+        const SUPABASE_KEY = '【あなたのSupabase Key】';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // グローバル変数
+        let currentUser = null;
+        let lessons = [];
+        let userProgress = [];
+    </script>
 
-    <nav class="bg-teal-600 text-white p-4 shadow-md sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <span>💊</span> PharmaClass
-            </h1>
-            <div id="auth-ui"></div>
-        </div>
-    </nav>
-
-    <div class="container mx-auto p-4 max-w-3xl mt-6">
-
-        <div id="login-screen" class="bg-white p-8 rounded-lg shadow-lg hidden max-w-md mx-auto mt-10">
-            <h2 class="text-2xl font-bold mb-6 text-center text-teal-700">薬剤師コミュニティ</h2>
-            
-            <div class="flex gap-4 mb-6 justify-center">
-                <button onclick="switchMode('login')" id="btn-mode-login" class="font-bold border-b-2 border-teal-600 pb-1">ログイン</button>
-                <button onclick="switchMode('signup')" id="btn-mode-signup" class="text-gray-400 pb-1">新規登録</button>
-            </div>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="text-sm font-bold text-gray-600">メールアドレス</label>
-                    <input type="email" id="email" placeholder="example@pharmacy.jp" class="w-full border p-3 rounded mt-1 focus:ring-2 focus:ring-teal-500 outline-none">
-                </div>
-                
-                <div id="license-field" class="hidden">
-                    <label class="block text-sm font-bold text-gray-600 mb-1">薬剤師免許番号 <span class="text-red-500">*</span></label>
-                    <input type="text" id="license" placeholder="例: 123456" class="w-full border p-3 rounded focus:ring-2 focus:ring-teal-500 outline-none" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-                    <p class="text-xs text-gray-400 mt-1">※半角数字のみ入力してください</p>
-                </div>
-
-                <div>
-                    <label class="text-sm font-bold text-gray-600">パスワード</label>
-                    <input type="password" id="password" placeholder="••••••••" class="w-full border p-3 rounded mt-1 focus:ring-2 focus:ring-teal-500 outline-none" oninput="checkPassword()">
-                    <div id="password-rules" class="hidden text-xs mt-2 p-3 bg-gray-50 rounded border">
-                        <p class="font-bold mb-2">セキュリティ要件:</p>
-                        <ul class="space-y-1">
-                            <li id="rule-len" class="text-gray-400 flex items-center gap-1"><span>❌</span> 10文字以上</li>
-                            <li id="rule-upper" class="text-gray-400 flex items-center gap-1"><span>❌</span> 大文字 (A-Z)</li>
-                            <li id="rule-lower" class="text-gray-400 flex items-center gap-1"><span>❌</span> 小文字 (a-z)</li>
-                            <li id="rule-num" class="text-gray-400 flex items-center gap-1"><span>❌</span> 数字 (0-9)</li>
-                            <li id="rule-sym" class="text-gray-400 flex items-center gap-1"><span>❌</span> 記号 (!@#$など)</li>
-                        </ul>
+    <!-- ========================================
+         ヘッダー
+    ======================================== -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
                     </div>
+                    <h1 class="text-2xl font-bold">PharmaCampus</h1>
                 </div>
-
-                <button id="action-btn" onclick="handleAuth()" class="w-full bg-teal-600 text-white font-bold py-3 rounded hover:bg-teal-700 transition shadow-md mt-4">ログイン</button>
-                <p id="error-msg" class="text-red-500 text-sm text-center font-bold mt-2"></p>
+                <div id="userInfo" class="hidden items-center space-x-4">
+                    <span id="userEmail" class="text-sm opacity-90"></span>
+                    <button onclick="logout()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition">
+                        ログアウト
+                    </button>
+                </div>
             </div>
         </div>
+    </header>
 
-        <div id="app-screen" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow border-l-4 border-teal-500">
-                <div class="flex justify-between items-end mb-2">
-                    <h2 class="font-bold text-lg text-gray-700">現在の学習進捗</h2>
-                    <span id="progress-text" class="text-3xl font-bold text-teal-600">0%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                    <div id="progress-bar" class="bg-teal-500 h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: 0%">
-                        <div class="absolute inset-0 bg-white opacity-20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
-                    </div>
-                </div>
-                <p class="text-sm text-gray-500 mt-2">動画下の「完了」ボタンを押すと進捗が進みます。</p>
+    <!-- ========================================
+         進捗バー
+    ======================================== -->
+    <div id="progressSection" class="hidden bg-white shadow-sm border-b">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-700">学習進捗</span>
+                <span id="progressText" class="text-sm font-bold text-purple-600">0%</span>
             </div>
-
-            <div id="lesson-list" class="space-y-6 pb-10"></div>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div id="progressBar" class="progress-bar h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
         </div>
     </div>
 
-    <script>
-        // ==========================================
-        // ★設定完了済み：あなたのプロジェクト情報★
-        // ==========================================
-        const SUPABASE_URL = 'https://jzymudoembgafbdcmjni.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6eW11ZG9lbWJnYWZiZGNtam5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MzM3NjMsImV4cCI6MjA4MTAwOTc2M30.pTihcUOuDdmBNyE8qSzuEJLcqODn-iKBKelFNr2rB-8';
-        // ==========================================
+    <!-- ========================================
+         メインコンテンツ
+    ======================================== -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 認証セクション -->
+        <div id="authSection" class="max-w-md mx-auto">
+            <!-- タブ切り替え -->
+            <div class="flex mb-6 bg-white rounded-xl p-1 card-shadow">
+                <button id="loginTab" onclick="showTab('login')" class="flex-1 py-3 px-4 rounded-lg font-medium transition bg-purple-600 text-white">
+                    ログイン
+                </button>
+                <button id="registerTab" onclick="showTab('register')" class="flex-1 py-3 px-4 rounded-lg font-medium transition text-gray-600 hover:bg-gray-100">
+                    新規登録
+                </button>
+            </div>
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        let isSignupMode = false;
-        let currentUser = null;
+            <!-- ログインフォーム -->
+            <div id="loginForm" class="bg-white rounded-2xl p-8 card-shadow fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">ログイン</h2>
+                <form onsubmit="handleLogin(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                        <input type="email" id="loginEmail" required
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                            placeholder="example@email.com">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">パスワード</label>
+                        <input type="password" id="loginPassword" required
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                            placeholder="••••••••••">
+                    </div>
+                    <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-medium">
+                        ログイン
+                    </button>
+                </form>
+                <div id="loginError" class="mt-4 text-red-500 text-sm text-center hidden"></div>
+            </div>
 
-        // 初期化処理
-        async function init() {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) throw error;
-                
-                if (session) {
-                    currentUser = session.user;
-                    showApp();
-                } else {
-                    document.getElementById('login-screen').classList.remove('hidden');
-                }
-            } catch (err) {
-                console.error("Supabase接続エラー:", err);
-            }
-        }
-
-        // 画面切り替え
-        function switchMode(mode) {
-            isSignupMode = (mode === 'signup');
-            document.getElementById('license-field').classList.toggle('hidden', !isSignupMode);
-            document.getElementById('password-rules').classList.toggle('hidden', !isSignupMode);
-            document.getElementById('action-btn').innerText = isSignupMode ? "新規登録して始める" : "ログイン";
-            
-            const activeClass = "font-bold border-b-2 border-teal-600 text-teal-800";
-            const inactiveClass = "text-gray-400 hover:text-gray-600";
-            
-            document.getElementById('btn-mode-signup').className = isSignupMode ? `${activeClass} pb-1` : `${inactiveClass} pb-1`;
-            document.getElementById('btn-mode-login').className = !isSignupMode ? `${activeClass} pb-1` : `${inactiveClass} pb-1`;
-            
-            document.getElementById('error-msg').innerText = "";
-        }
-
-        // パスワードチェックロジック
-        function checkPassword() {
-            if (!isSignupMode) return true;
-            const pw = document.getElementById('password').value;
-            const rules = {
-                len: pw.length >= 10,
-                upper: /[A-Z]/.test(pw),
-                lower: /[a-z]/.test(pw),
-                num: /[0-9]/.test(pw),
-                sym: /[\W_]/.test(pw)
-            };
-
-            for (const [key, valid] of Object.entries(rules)) {
-                const el = document.getElementById(`rule-${key}`);
-                const icon = valid ? '✅' : '❌';
-                const text = el.innerText.substring(2);
-                el.innerHTML = `<span>${icon}</span> ${text}`;
-                el.className = valid ? "text-green-600 font-bold flex items-center gap-1 transition-colors" : "text-gray-400 flex items-center gap-1 transition-colors";
-            }
-            return Object.values(rules).every(Boolean);
-        }
-
-        // 認証処理（ログイン・登録）
-        async function handleAuth() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const license = document.getElementById('license').value;
-            const errorEl = document.getElementById('error-msg');
-            const btn = document.getElementById('action-btn');
-
-            errorEl.innerText = "";
-
-            if (!email || !password) {
-                errorEl.innerText = "メールとパスワードを入力してください";
-                return;
-            }
-
-            btn.disabled = true;
-            btn.innerText = "処理中...";
-
-            try {
-                if (isSignupMode) {
-                    if (!checkPassword()) throw new Error("パスワードの要件を満たしてください");
-                    if (!license) throw new Error("薬剤師免許番号を入力してください");
-
-                    // 登録処理
-                    const { data, error } = await supabase.auth.signUp({
-                        email, 
-                        password,
-                        options: { data: { license_number: license } }
-                    });
-                    if (error) throw error;
-                    
-                    // Supabaseの設定によっては、メール確認なしでログインできる場合とできない場合があります
-                    // 確認メールが必要な設定の場合に備えてアラートを表示
-                    alert("登録確認メールを送信しました！\nメール内のリンクをクリックしてからログインしてください。\n(※もしメール確認をOFFにしている場合は、そのままログインしてください)");
-                    switchMode('login'); 
-                } else {
-                    // ログイン処理
-                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                    if (error) throw error;
-                    location.reload();
-                }
-            } catch (err) {
-                errorEl.innerText = err.message;
-            } finally {
-                btn.disabled = false;
-                btn.innerText = isSignupMode ? "新規登録して始める" : "ログイン";
-            }
-        }
-
-        // アプリ画面表示
-        async function showApp() {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app-screen').classList.remove('hidden');
-            document.getElementById('auth-ui').innerHTML = `
-                <div class="flex items-center gap-4">
-                    <span class="text-sm hidden md:inline opacity-90">${currentUser.email}</span>
-                    <button onclick="logout()" class="text-sm bg-teal-800 text-teal-100 px-3 py-1 rounded hover:bg-teal-900 transition">ログアウト</button>
-                </div>`;
-
-            // データの取得
-            const { data: lessons, error: l_err } = await supabase.from('lessons').select('*').order('lesson_order');
-            const { data: myProgress, error: p_err } = await supabase.from('progress').select('lesson_id').eq('user_id', currentUser.id);
-            
-            if(l_err) { alert("データ取得エラー: " + l_err.message); return; }
-
-            const completedIds = myProgress ? myProgress.map(p => p.lesson_id) : [];
-
-            // 進捗計算
-            const percent = lessons.length > 0 ? Math.round((completedIds.length / lessons.length) * 100) : 0;
-            document.getElementById('progress-bar').style.width = `${percent}%`;
-            document.getElementById('progress-text').innerText = `${percent}%`;
-
-            // リスト描画
-            const list = document.getElementById('lesson-list');
-            list.innerHTML = "";
-
-            lessons.forEach((lesson, i) => {
-                let isLocked = false;
-                // ロック条件: 1つ目ではなく、かつ前の動画が終わっていない場合
-                if (i > 0 && !completedIds.includes(lessons[i-1].id)) {
-                    isLocked = true;
-                }
-                // 自分が終わっていればロック解除
-                if (completedIds.includes(lesson.id)) isLocked = false;
-
-                const isDone = completedIds.includes(lesson.id);
-                
-                const html = `
-                    <div class="border rounded-lg overflow-hidden bg-white shadow-sm transition hover:shadow-md ${isLocked ? 'opacity-70 bg-gray-50' : ''}">
-                        <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
-                            <h3 class="font-bold text-lg text-gray-800">
-                                <span class="bg-teal-100 text-teal-800 text-xs px-2 py-1 rounded mr-2">第${lesson.lesson_order}回</span>
-                                ${lesson.title}
-                            </h3>
-                            ${isDone ? '<span class="text-green-600 font-bold text-sm bg-green-100 px-2 py-1 rounded flex items-center gap-1">✅ 完了</span>' : ''}
-                            ${isLocked ? '<span class="text-gray-500 font-bold text-sm bg-gray-200 px-2 py-1 rounded flex items-center gap-1">🔒 ロック中</span>' : ''}
-                        </div>
-                        <div class="p-4">
-                            ${isLocked 
-                                ? `<div class="h-48 bg-gray-200 rounded flex flex-col items-center justify-center text-gray-500 gap-2">
-                                     <span class="text-2xl">🔒</span>
-                                     <span>前の動画を学習完了すると視聴できます</span>
-                                   </div>`
-                                : `<div class="aspect-video w-full mb-4 bg-black rounded relative overflow-hidden">
-                                     <iframe class="w-full h-full absolute top-0 left-0" src="https://www.youtube.com/embed/${lesson.youtube_id}" frameborder="0" allowfullscreen></iframe>
-                                   </div>
-                                   ${!isDone 
-                                     ? `<button onclick="completeLesson(${lesson.id})" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 shadow transition flex justify-center items-center gap-2">
-                                        <span>👉</span> この動画を学習完了して次へ
-                                        </button>` 
-                                     : `<div class="text-center text-teal-600 font-bold py-2 bg-teal-50 rounded">🎉 学習完了しました！</div>`
-                                   }`
-                            }
+            <!-- 新規登録フォーム -->
+            <div id="registerForm" class="bg-white rounded-2xl p-8 card-shadow fade-in hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">新規登録</h2>
+                <form onsubmit="handleRegister(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                        <input type="email" id="registerEmail" required
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                            placeholder="example@email.com">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">パスワード</label>
+                        <input type="password" id="registerPassword" required oninput="checkPasswordStrength()"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                            placeholder="••••••••••">
+                        <!-- パスワード強度チェック表示 -->
+                        <div id="passwordRequirements" class="mt-3 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-sm font-medium text-gray-700 mb-2">パスワード要件:</p>
+                            <ul class="text-sm space-y-1">
+                                <li id="req-length" class="flex items-center space-x-2 requirement-unmet">
+                                    <span id="req-length-icon">✗</span>
+                                    <span>10文字以上</span>
+                                </li>
+                                <li id="req-upper" class="flex items-center space-x-2 requirement-unmet">
+                                    <span id="req-upper-icon">✗</span>
+                                    <span>大文字を含む (A-Z)</span>
+                                </li>
+                                <li id="req-lower" class="flex items-center space-x-2 requirement-unmet">
+                                    <span id="req-lower-icon">✗</span>
+                                    <span>小文字を含む (a-z)</span>
+                                </li>
+                                <li id="req-number" class="flex items-center space-x-2 requirement-unmet">
+                                    <span id="req-number-icon">✗</span>
+                                    <span>数字を含む (0-9)</span>
+                                </li>
+                                <li id="req-symbol" class="flex items-center space-x-2 requirement-unmet">
+                                    <span id="req-symbol-icon">✗</span>
+                                    <span>記号を含む (!@#$%など)</span>
+                                </li>
+                            </ul>
                         </div>
                     </div>
-                `;
-                list.insertAdjacentHTML('beforeend', html);
-            });
-        }
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            薬剤師免許番号 <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="licenseNumber" required oninput="validateLicenseNumber()"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                            placeholder="半角数字のみ（例: 123456）"
+                            pattern="[0-9]+"
+                            title="半角数字のみ入力可能です">
+                        <p id="licenseError" class="mt-1 text-sm text-red-500 hidden">半角数字のみ入力してください</p>
+                    </div>
+                    <button type="submit" id="registerButton" disabled
+                        class="w-full btn-primary text-white py-3 rounded-lg font-medium disabled:opacity-50">
+                        新規登録
+                    </button>
+                </form>
+                <div id="registerError" class="mt-4 text-red-500 text-sm text-center hidden"></div>
+                <div id="registerSuccess" class="mt-4 text-green-500 text-sm text-center hidden"></div>
+            </div>
+        </div>
 
-        async function completeLesson(id) {
-            if(!confirm("動画の内容を理解しましたか？\n「OK」を押すと学習完了として記録します。")) return;
+        <!-- 学習セクション -->
+        <div id="learningSection" class="hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">📚 レッスン一覧</h2>
+                <p class="text-gray-600">順番に動画を視聴し、学習を進めましょう</p>
+            </div>
             
-            const { error } = await supabase.from('progress').insert({ 
-                user_id: currentUser.id, 
-                lesson_id: id 
-            });
+            <div id="lessonList" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <!-- レッスンカードがここに動的に挿入される -->
+            </div>
+        </div>
 
-            if(error) {
-                alert("エラーが発生しました: " + error.message);
+        <!-- 動画プレイヤーモーダル -->
+        <div id="videoModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div class="p-4 border-b flex items-center justify-between">
+                    <h3 id="modalTitle" class="text-xl font-bold text-gray-800"></h3>
+                    <button onclick="closeVideoModal()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="aspect-video bg-black">
+                    <iframe id="videoPlayer" class="w-full h-full" frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen></iframe>
+                </div>
+                <div class="p-4 border-t">
+                    <button id="completeButton" onclick="completeLesson()"
+                        class="w-full btn-primary text-white py-3 rounded-lg font-medium flex items-center justify-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span>完了して次へ</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================
+         フッター
+    ======================================== -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-gray-400">© 2024 PharmaCampus. All rights reserved.</p>
+            <p class="text-sm text-gray-500 mt-2">薬剤師のための継続学習プラットフォーム</p>
+        </div>
+    </footer>
+
+    <!-- ========================================
+         JavaScript
+    ======================================== -->
+    <script>
+        // 現在表示中のレッスンID
+        let currentLessonId = null;
+
+        // ========================================
+        // 認証関連
+        // ========================================
+        
+        // タブ切り替え
+        function showTab(tab) {
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (tab === 'login') {
+                loginTab.classList.add('bg-purple-600', 'text-white');
+                loginTab.classList.remove('text-gray-600');
+                registerTab.classList.remove('bg-purple-600', 'text-white');
+                registerTab.classList.add('text-gray-600');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
             } else {
-                alert("お疲れ様でした！進捗が記録され、次の動画がアンロックされました🎉");
-                location.reload();
+                registerTab.classList.add('bg-purple-600', 'text-white');
+                registerTab.classList.remove('text-gray-600');
+                loginTab.classList.remove('bg-purple-600', 'text-white');
+                loginTab.classList.add('text-gray-600');
+                registerForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
             }
         }
 
-        async function logout() {
-            await supabase.auth.signOut();
-            location.reload();
+        // パスワード強度チェック
+        function checkPasswordStrength() {
+            const password = document.getElementById('registerPassword').value;
+            
+            const requirements = {
+                length: password.length >= 10,
+                upper: /[A-Z]/.test(password),
+                lower: /[a-z]/.test(password),
+                number: /[0-9]/.test(password),
+                symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+            };
+
+            // 各条件の表示を更新
+            Object.keys(requirements).forEach(key => {
+                const element = document.getElementById(`req-${key}`);
+                const icon = document.getElementById(`req-${key}-icon`);
+                if (requirements[key]) {
+                    element.classList.remove('requirement-unmet');
+                    element.classList.add('requirement-met');
+                    icon.textContent = '✓';
+                } else {
+                    element.classList.remove('requirement-met');
+                    element.classList.add('requirement-unmet');
+                    icon.textContent = '✗';
+                }
+            });
+
+            // 全条件を満たしているかチェック
+            const allMet = Object.values(requirements).every(v => v);
+            updateRegisterButton();
+            
+            return allMet;
         }
 
-        init();
+        // 薬剤師免許番号のバリデーション
+        function validateLicenseNumber() {
+            const input = document.getElementById('licenseNumber');
+            const error = document.getElementById('licenseError');
+            const value = input.value;
+            
+            // 半角数字以外を除去
+            const cleanValue = value.replace(/[^0-9]/g, '');
+            
+            if (value !== cleanValue) {
+                input.value = cleanValue;
+                error.classList.remove('hidden');
+            } else {
+                error.classList.add('hidden');
+            }
+            
+            updateRegisterButton();
+            return cleanValue.length > 0;
+        }
+
+        // 登録ボタンの有効/無効を更新
+        function updateRegisterButton() {
+            const button = document.getElementById('registerButton');
+            const passwordValid = checkPasswordStrengthOnly();
+            const licenseValid = document.getElementById('licenseNumber').value.length > 0;
+            const emailValid = document.getElementById('registerEmail').value.length > 0;
+            
+            button.disabled = !(passwordValid && licenseValid && emailValid);
+        }
+
+        // パスワード強度のみチェック（UI更新なし）
+        function checkPasswordStrengthOnly() {
+            const password = document.getElementById('registerPassword').value;
+            return password.length >= 10 &&
+                   /[A-Z]/.test(password) &&
+                   /[a-z]/.test(password) &&
+                   /[0-9]/.test(password) &&
+                   /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+        }
+
+        // ログイン処理
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                currentUser = data.user;
+                showLearningSection();
+            } catch (error) {
+                errorDiv.textContent = 'ログインに失敗しました: ' + error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // 新規登録処理
+        async function handleRegister(event) {
+            event.preventDefault();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const licenseNumber = document.getElementById('licenseNumber').value;
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+            
+            // バリデーション
+            if (!checkPasswordStrengthOnly()) {
+                errorDiv.textContent = 'パスワードは全ての要件を満たす必要があります';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!/^[0-9]+$/.test(licenseNumber)) {
+                errorDiv.textContent = '薬剤師免許番号は半角数字のみで入力してください';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                // Supabase Authで登録
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                // profilesテーブルに追加情報を保存
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: data.user.id,
+                        email: email,
+                        license_number: licenseNumber
+                    });
+                
+                if (profileError) throw profileError;
+                
+                errorDiv.classList.add('hidden');
+                successDiv.textContent = '登録が完了しました！確認メールを送信しました。';
+                successDiv.classList.remove('hidden');
+                
+                // 少し待ってからログインタブに切り替え
+                setTimeout(() => {
+                    showTab('login');
+                    successDiv.classList.add('hidden');
+                }, 3000);
+                
+            } catch (error) {
+                errorDiv.textContent = '登録に失敗しました: ' + error.message;
+                errorDiv.classList.remove('hidden');
+                successDiv.classList.add('hidden');
+            }
+        }
+
+        // ログアウト処理
+        async function logout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            userProgress = [];
+            showAuthSection();
+        }
+
+        // ========================================
+        // UI表示切り替え
+        // ========================================
+        
+        function showAuthSection() {
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('learningSection').classList.add('hidden');
+            document.getElementById('progressSection').classList.add('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('userInfo').classList.remove('flex');
+        }
+
+        function showLearningSection() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('learningSection').classList.remove('hidden');
+            document.getElementById('progressSection').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('userInfo').classList.add('flex');
+            document.getElementById('userEmail').textContent = currentUser.email;
+            
+            loadLessons();
+        }
+
+        // ========================================
+        // レッスン関連
+        // ========================================
+        
+        async function loadLessons() {
+            try {
+                // レッスン一覧を取得
+                const { data: lessonsData, error: lessonsError } = await supabase
+                    .from('lessons')
+                    .select('*')
+                    .order('lesson_order', { ascending: true });
+                
+                if (lessonsError) throw lessonsError;
+                lessons = lessonsData;
+                
+                // ユーザーの進捗を取得
+                const { data: progressData, error: progressError } = await supabase
+                    .from('progress')
+                    .select('lesson_id')
+                    .eq('user_id', currentUser.id);
+                
+                if (progressError) throw progressError;
+                userProgress = progressData.map(p => p.lesson_id);
+                
+                renderLessons();
+                updateProgressBar();
+            } catch (error) {
+                console.error('レッスン読み込みエラー:', error);
+            }
+        }
+
+        function renderLessons() {
+            const container = document.getElementById('lessonList');
+            container.innerHTML = '';
+            
+            lessons.forEach((lesson, index) => {
+                const isCompleted = userProgress.includes(lesson.id);
+                const isUnlocked = index === 0 || userProgress.includes(lessons[index - 1].id);
+                
+                const card = document.createElement('div');
+                card.className = `video-card bg-white rounded-2xl overflow-hidden card-shadow ${!isUnlocked ? 'opacity-75' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="relative">
+                        <img src="https://img.youtube.com/vi/${lesson.youtube_id}/maxresdefault.jpg" 
+                             alt="${lesson.title}" 
+                             class="w-full aspect-video object-cover"
+                             onerror="this.src='https://img.youtube.com/vi/${lesson.youtube_id}/hqdefault.jpg'">
+                        ${!isUnlocked ? `
+                            <div class="locked-overlay absolute inset-0 flex items-center justify-center">
+                                <div class="text-center text-white">
+                                    <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 1C8.676 1 6 3.676 6 7v2H4v14h16V9h-2V7c0-3.324-2.676-6-6-6zm0 2c2.276 0 4 1.724 4 4v2H8V7c0-2.276 1.724-4 4-4zm0 10c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
+                                    </svg>
+                                    <p class="text-sm">前のレッスンを完了してください</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${isCompleted ? `
+                            <div class="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center space-x-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <span>完了</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="p-5">
+                        <div class="flex items-center space-x-2 text-sm text-purple-600 font-medium mb-2">
+                            <span>第${lesson.lesson_order}回</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">${lesson.title}</h3>
+                        <button 
+                            onclick="openVideoModal(${lesson.id})"
+                            ${!isUnlocked ? 'disabled' : ''}
+                            class="w-full py-2 rounded-lg font-medium transition ${
+                                isUnlocked 
+                                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            }">
+                            ${isUnlocked ? (isCompleted ? '復習する' : '視聴する') : 'ロック中'}
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function updateProgressBar() {
+            const totalLessons = lessons.length;
+            const completedLessons = userProgress.length;
+            const percentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+            
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `${percentage}% (${completedLessons}/${totalLessons})`;
+        }
+
+        // ========================================
+        // 動画モーダル
+        // ========================================
+        
+        function openVideoModal(lessonId) {
+            const lesson = lessons.find(l => l.id === lessonId);
+            if (!lesson) return;
+            
+            currentLessonId = lessonId;
+            
+            document.getElementById('modalTitle').textContent = `第${lesson.lesson_order}回: ${lesson.title}`;
+            document.getElementById('videoPlayer').src = `https://www.youtube.com/embed/${lesson.youtube_id}?autoplay=1`;
+            
+            // 既に完了している場合はボタンのテキストを変更
+            const isCompleted = userProgress.includes(lessonId);
+            const completeButton = document.getElementById('completeButton');
+            if (isCompleted) {
+                completeButton.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>完了済み（閉じる）</span>
+                `;
+            } else {
+                completeButton.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>完了して次へ</span>
+                `;
+            }
+            
+            document.getElementById('videoModal').classList.remove('hidden');
+            document.getElementById('videoModal').classList.add('flex');
+        }
+
+        function closeVideoModal() {
+            document.getElementById('videoPlayer').src = '';
+            document.getElementById('videoModal').classList.add('hidden');
+            document.getElementById('videoModal').classList.remove('flex');
+            currentLessonId = null;
+        }
+
+        async function completeLesson() {
+            if (!currentLessonId) return;
+            
+            // 既に完了している場合は閉じるだけ
+            if (userProgress.includes(currentLessonId)) {
+                closeVideoModal();
+                return;
+            }
+            
+            try {
+                // 進捗を保存
+                const { error } = await supabase
+                    .from('progress')
+                    .insert({
+                        user_id: currentUser.id,
+                        lesson_id: currentLessonId
+                    });
+                
+                if (error) throw error;
+                
+                // ローカルの進捗を更新
+                userProgress.push(currentLessonId);
+                
+                // UIを更新
+                renderLessons();
+                updateProgressBar();
+                closeVideoModal();
+                
+            } catch (error) {
+                console.error('進捗保存エラー:', error);
+                alert('進捗の保存に失敗しました: ' + error.message);
+            }
+        }
+
+        // ========================================
+        // 初期化
+        // ========================================
+        
+        async function init() {
+            // 既存のセッションをチェック
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                currentUser = session.user;
+                showLearningSection();
+            } else {
+                showAuthSection();
+            }
+            
+            // 認証状態の変更を監視
+            supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    currentUser = session.user;
+                    showLearningSection();
+                } else if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    showAuthSection();
+                }
+            });
+        }
+
+        // ページ読み込み時に初期化
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // メールアドレス入力時にも登録ボタンを更新
+        document.getElementById('registerEmail').addEventListener('input', updateRegisterButton);
     </script>
 </body>
 </html>
