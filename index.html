@@ -449,13 +449,38 @@
 
     <!-- Footer -->
     <footer class="bg-white border-t mt-auto py-8 text-center text-gray-400 text-sm">
-        <p>© 2024 PharmaCampus</p>
+        <p class="mb-2">© 2024 PharmaCampus</p>
+        <button onclick="handleAdminEnter()"
+            class="text-xs text-gray-300 hover:text-purple-600 transition underline">管理者ページ</button>
     </footer>
 
     <!-- ========================================
          SCRIPTS
     ======================================== -->
     <script>
+        // ... (existing helper functions)
+
+        async function handleAdminEnter() {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                // Not logged in -> Go to Login
+                alert('管理者アカウントでログインしてください');
+                showTab('login');
+                showAuthMode();
+                return;
+            }
+
+            // Logged in -> Check Role
+            if (isAdmin) {
+                // Is Admin -> Go to Dashboard
+                showAdminMode();
+            } else {
+                // Logged in but NOT Admin
+                alert('ログイン中のアカウントには管理者権限がありません。\nSupabaseで権限設定を行ってください。');
+            }
+        }
+
         // --- Helper ---
         function extractVideoId(url) {
             if (!url) return null;
