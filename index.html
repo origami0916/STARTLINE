@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacist Community</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-gray-800 font-sans min-h-screen">
+
+    <nav class="bg-teal-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <span>💊</span> PharmaClass
+            </h1>
+            <div id="auth-ui"></div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 max-w-3xl mt-6">
+
+        <div id="login-screen" class="bg-white p-8 rounded-lg shadow-lg hidden max-w-md mx-auto mt-10">
+            <h2 class="text-2xl font-bold mb-6 text-center text-teal-700">薬剤師コミュニティ</h2>
+            
+            <div class="flex gap-4 mb-6 justify-center">
+                <button onclick="switchMode('login')" id="btn-mode-login" class="font-bold border-b-2 border-teal-600 pb-1">ログイン</button>
+                <button onclick="switchMode('signup')" id="btn-mode-signup" class="text-gray-400 pb-1">新規登録</button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm font-bold text-gray-600">メールアドレス</label>
+                    <input type="email" id="email" placeholder="example@pharmacy.jp" class="w-full border p-3 rounded mt-1 focus:ring-2 focus:ring-teal-500 outline-none">
+                </div>
+                
+                <div id="license-field" class="hidden">
+                    <label class="block text-sm font-bold text-gray-600 mb-1">薬剤師免許番号 <span class="text-red-500">*</span></label>
+                    <input type="text" id="license" placeholder="例: 123456" class="w-full border p-3 rounded focus:ring-2 focus:ring-teal-500 outline-none" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                    <p class="text-xs text-gray-400 mt-1">※半角数字のみ入力してください</p>
+                </div>
+
+                <div>
+                    <label class="text-sm font-bold text-gray-600">パスワード</label>
+                    <input type="password" id="password" placeholder="••••••••" class="w-full border p-3 rounded mt-1 focus:ring-2 focus:ring-teal-500 outline-none" oninput="checkPassword()">
+                    <div id="password-rules" class="hidden text-xs mt-2 p-3 bg-gray-50 rounded border">
+                        <p class="font-bold mb-2">セキュリティ要件:</p>
+                        <ul class="space-y-1">
+                            <li id="rule-len" class="text-gray-400 flex items-center gap-1"><span>❌</span> 10文字以上</li>
+                            <li id="rule-upper" class="text-gray-400 flex items-center gap-1"><span>❌</span> 大文字 (A-Z)</li>
+                            <li id="rule-lower" class="text-gray-400 flex items-center gap-1"><span>❌</span> 小文字 (a-z)</li>
+                            <li id="rule-num" class="text-gray-400 flex items-center gap-1"><span>❌</span> 数字 (0-9)</li>
+                            <li id="rule-sym" class="text-gray-400 flex items-center gap-1"><span>❌</span> 記号 (!@#$など)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <button id="action-btn" onclick="handleAuth()" class="w-full bg-teal-600 text-white font-bold py-3 rounded hover:bg-teal-700 transition shadow-md mt-4">ログイン</button>
+                <p id="error-msg" class="text-red-500 text-sm text-center font-bold mt-2"></p>
+            </div>
+        </div>
+
+        <div id="app-screen" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-lg shadow border-l-4 border-teal-500">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="font-bold text-lg text-gray-700">現在の学習進捗</h2>
+                    <span id="progress-text" class="text-3xl font-bold text-teal-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div id="progress-bar" class="bg-teal-500 h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: 0%">
+                        <div class="absolute inset-0 bg-white opacity-20" style="background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem;"></div>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">動画下の「完了」ボタンを押すと進捗が進みます。</p>
+            </div>
+
+            <div id="lesson-list" class="space-y-6 pb-10"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // ★設定完了済み：あなたのプロジェクト情報★
+        // ==========================================
+        const SUPABASE_URL = 'https://jzymudoembgafbdcmjni.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6eW11ZG9lbWJnYWZiZGNtam5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0MzM3NjMsImV4cCI6MjA4MTAwOTc2M30.pTihcUOuDdmBNyE8qSzuEJLcqODn-iKBKelFNr2rB-8';
+        // ==========================================
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let isSignupMode = false;
+        let currentUser = null;
+
+        // 初期化処理
+        async function init() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                
+                if (session) {
+                    currentUser = session.user;
+                    showApp();
+                } else {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Supabase接続エラー:", err);
+            }
+        }
+
+        // 画面切り替え
+        function switchMode(mode) {
+            isSignupMode = (mode === 'signup');
+            document.getElementById('license-field').classList.toggle('hidden', !isSignupMode);
+            document.getElementById('password-rules').classList.toggle('hidden', !isSignupMode);
+            document.getElementById('action-btn').innerText = isSignupMode ? "新規登録して始める" : "ログイン";
+            
+            const activeClass = "font-bold border-b-2 border-teal-600 text-teal-800";
+            const inactiveClass = "text-gray-400 hover:text-gray-600";
+            
+            document.getElementById('btn-mode-signup').className = isSignupMode ? `${activeClass} pb-1` : `${inactiveClass} pb-1`;
+            document.getElementById('btn-mode-login').className = !isSignupMode ? `${activeClass} pb-1` : `${inactiveClass} pb-1`;
+            
+            document.getElementById('error-msg').innerText = "";
+        }
+
+        // パスワードチェックロジック
+        function checkPassword() {
+            if (!isSignupMode) return true;
+            const pw = document.getElementById('password').value;
+            const rules = {
+                len: pw.length >= 10,
+                upper: /[A-Z]/.test(pw),
+                lower: /[a-z]/.test(pw),
+                num: /[0-9]/.test(pw),
+                sym: /[\W_]/.test(pw)
+            };
+
+            for (const [key, valid] of Object.entries(rules)) {
+                const el = document.getElementById(`rule-${key}`);
+                const icon = valid ? '✅' : '❌';
+                const text = el.innerText.substring(2);
+                el.innerHTML = `<span>${icon}</span> ${text}`;
+                el.className = valid ? "text-green-600 font-bold flex items-center gap-1 transition-colors" : "text-gray-400 flex items-center gap-1 transition-colors";
+            }
+            return Object.values(rules).every(Boolean);
+        }
+
+        // 認証処理（ログイン・登録）
+        async function handleAuth() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const license = document.getElementById('license').value;
+            const errorEl = document.getElementById('error-msg');
+            const btn = document.getElementById('action-btn');
+
+            errorEl.innerText = "";
+
+            if (!email || !password) {
+                errorEl.innerText = "メールとパスワードを入力してください";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "処理中...";
+
+            try {
+                if (isSignupMode) {
+                    if (!checkPassword()) throw new Error("パスワードの要件を満たしてください");
+                    if (!license) throw new Error("薬剤師免許番号を入力してください");
+
+                    // 登録処理
+                    const { data, error } = await supabase.auth.signUp({
+                        email, 
+                        password,
+                        options: { data: { license_number: license } }
+                    });
+                    if (error) throw error;
+                    
+                    // Supabaseの設定によっては、メール確認なしでログインできる場合とできない場合があります
+                    // 確認メールが必要な設定の場合に備えてアラートを表示
+                    alert("登録確認メールを送信しました！\nメール内のリンクをクリックしてからログインしてください。\n(※もしメール確認をOFFにしている場合は、そのままログインしてください)");
+                    switchMode('login'); 
+                } else {
+                    // ログイン処理
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    location.reload();
+                }
+            } catch (err) {
+                errorEl.innerText = err.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = isSignupMode ? "新規登録して始める" : "ログイン";
+            }
+        }
+
+        // アプリ画面表示
+        async function showApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            document.getElementById('auth-ui').innerHTML = `
+                <div class="flex items-center gap-4">
+                    <span class="text-sm hidden md:inline opacity-90">${currentUser.email}</span>
+                    <button onclick="logout()" class="text-sm bg-teal-800 text-teal-100 px-3 py-1 rounded hover:bg-teal-900 transition">ログアウト</button>
+                </div>`;
+
+            // データの取得
+            const { data: lessons, error: l_err } = await supabase.from('lessons').select('*').order('lesson_order');
+            const { data: myProgress, error: p_err } = await supabase.from('progress').select('lesson_id').eq('user_id', currentUser.id);
+            
+            if(l_err) { alert("データ取得エラー: " + l_err.message); return; }
+
+            const completedIds = myProgress ? myProgress.map(p => p.lesson_id) : [];
+
+            // 進捗計算
+            const percent = lessons.length > 0 ? Math.round((completedIds.length / lessons.length) * 100) : 0;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('progress-text').innerText = `${percent}%`;
+
+            // リスト描画
+            const list = document.getElementById('lesson-list');
+            list.innerHTML = "";
+
+            lessons.forEach((lesson, i) => {
+                let isLocked = false;
+                // ロック条件: 1つ目ではなく、かつ前の動画が終わっていない場合
+                if (i > 0 && !completedIds.includes(lessons[i-1].id)) {
+                    isLocked = true;
+                }
+                // 自分が終わっていればロック解除
+                if (completedIds.includes(lesson.id)) isLocked = false;
+
+                const isDone = completedIds.includes(lesson.id);
+                
+                const html = `
+                    <div class="border rounded-lg overflow-hidden bg-white shadow-sm transition hover:shadow-md ${isLocked ? 'opacity-70 bg-gray-50' : ''}">
+                        <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+                            <h3 class="font-bold text-lg text-gray-800">
+                                <span class="bg-teal-100 text-teal-800 text-xs px-2 py-1 rounded mr-2">第${lesson.lesson_order}回</span>
+                                ${lesson.title}
+                            </h3>
+                            ${isDone ? '<span class="text-green-600 font-bold text-sm bg-green-100 px-2 py-1 rounded flex items-center gap-1">✅ 完了</span>' : ''}
+                            ${isLocked ? '<span class="text-gray-500 font-bold text-sm bg-gray-200 px-2 py-1 rounded flex items-center gap-1">🔒 ロック中</span>' : ''}
+                        </div>
+                        <div class="p-4">
+                            ${isLocked 
+                                ? `<div class="h-48 bg-gray-200 rounded flex flex-col items-center justify-center text-gray-500 gap-2">
+                                     <span class="text-2xl">🔒</span>
+                                     <span>前の動画を学習完了すると視聴できます</span>
+                                   </div>`
+                                : `<div class="aspect-video w-full mb-4 bg-black rounded relative overflow-hidden">
+                                     <iframe class="w-full h-full absolute top-0 left-0" src="https://www.youtube.com/embed/${lesson.youtube_id}" frameborder="0" allowfullscreen></iframe>
+                                   </div>
+                                   ${!isDone 
+                                     ? `<button onclick="completeLesson(${lesson.id})" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 shadow transition flex justify-center items-center gap-2">
+                                        <span>👉</span> この動画を学習完了して次へ
+                                        </button>` 
+                                     : `<div class="text-center text-teal-600 font-bold py-2 bg-teal-50 rounded">🎉 学習完了しました！</div>`
+                                   }`
+                            }
+                        </div>
+                    </div>
+                `;
+                list.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        async function completeLesson(id) {
+            if(!confirm("動画の内容を理解しましたか？\n「OK」を押すと学習完了として記録します。")) return;
+            
+            const { error } = await supabase.from('progress').insert({ 
+                user_id: currentUser.id, 
+                lesson_id: id 
+            });
+
+            if(error) {
+                alert("エラーが発生しました: " + error.message);
+            } else {
+                alert("お疲れ様でした！進捗が記録され、次の動画がアンロックされました🎉");
+                location.reload();
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            location.reload();
+        }
+
+        init();
+    </script>
+</body>
+</html>
