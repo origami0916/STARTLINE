@@ -354,8 +354,56 @@
 
         async function handleRegister(e) {
             e.preventDefault();
-            // Simplified for brevity - assume standard flow
-            alert('登録機能は管理者機能実装中に付き、現在はログインをご利用ください。サンプルアカウント: user@example.com / password123 など');
+
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const licenseNumber = document.getElementById('licenseNumber').value;
+            const errorDiv = document.getElementById('registerError');
+            const successDiv = document.getElementById('registerSuccess');
+
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            // 簡易バリデーション
+            if (!email || !password || !licenseNumber) {
+                errorDiv.textContent = '全ての項目を入力してください';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Supabase Authで登録
+                // トリガーが設定されているので、profilesテーブルは自動作成されます
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            license_number: licenseNumber // トリガーでprofilesに保存されます
+                        }
+                    }
+                });
+
+                if (error) throw error;
+
+                // 成功時の処理
+                successDiv.textContent = '登録が完了しました！確認メールを送信しましたので、リンクをクリックしてログインしてください。';
+                successDiv.classList.remove('hidden');
+
+                // フォームをリセット
+                e.target.reset();
+
+                // 3秒後にログイン画面へ
+                setTimeout(() => {
+                    showTab('login');
+                    successDiv.classList.add('hidden');
+                }, 5000);
+
+            } catch (error) {
+                console.error('Registration error:', error);
+                errorDiv.textContent = '登録エラー: ' + error.message;
+                errorDiv.classList.remove('hidden');
+            }
         }
 
         async function logout() {
@@ -450,6 +498,17 @@
             renderLessons();
         }
 
+        // Video ID Extractor
+        function extractVideoId(url) {
+            if (!url) return null;
+            // Handle direct ID
+            if (url.length === 11) return url;
+            // Handle URL
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
         function renderLessons() {
             const container = document.getElementById('lessonList');
             container.innerHTML = '';
@@ -465,12 +524,16 @@
                 const isUnlocked = index === 0 || (prevLesson && userProgress.some(p => p.lesson_id === prevLesson.id));
                 const isCompleted = userProgress.some(p => p.lesson_id === lesson.id);
 
+                const videoId = extractVideoId(lesson.video_url);
+
                 const div = document.createElement('div');
                 div.className = `video-card bg-white rounded-2xl overflow-hidden card-shadow ${!isUnlocked ? 'opacity-75 grayscale-[0.5]' : 'hover-card'}`;
 
                 div.innerHTML = `
                     <div class="relative group">
-                        <img src="https://img.youtube.com/vi/${lesson.youtube_id}/mqdefault.jpg" class="w-full aspect-video object-cover">
+                        <img src="https://img.youtube.com/vi/${videoId}/mqdefault.jpg" 
+                             class="w-full aspect-video object-cover"
+                             onerror="this.src='https://placehold.co/600x400?text=No+Thumbnail'">
                         ${!isUnlocked ? `
                             <div class="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
                                 <div class="text-white text-center">
@@ -515,9 +578,10 @@
 
             const progress = userProgress.find(p => p.lesson_id === lessonId);
             const isCompleted = !!progress;
+            const videoId = extractVideoId(activeLesson.video_url);
 
             document.getElementById('modalLessonTitle').textContent = `Lesson ${activeLesson.lesson_order}: ${activeLesson.title}`;
-            document.getElementById('videoPlayer').src = `https://www.youtube.com/embed/${activeLesson.youtube_id}?autoplay=1&rel=0`;
+            document.getElementById('videoPlayer').src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
 
             // Toggle Views
             if (isCompleted) {
